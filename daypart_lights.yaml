@@ -1,0 +1,137 @@
+blueprint:
+  name: Daypart Driven Lighting
+  description: Lights respond to differing needs based on a function time of day
+  domain: automation
+  author: Owen Johnson
+  input: 
+    occupancy:
+      name: Occupancy sensing
+      selector: 
+        target:
+          entity: 
+            device_class: 
+              - occupancy
+    lights:
+      name: Which lights to control
+      selector: 
+        target:
+          entity:         
+            domain: light
+    task_dayparts:
+      name: Bright, task lighting during
+      selector:
+        state:
+          entity_id: input_select.day_part
+          multiple: true
+      default: []
+    path_dayparts:
+      name: Softer, Path lighting during
+      selector:
+        state:
+          entity_id: input_select.day_part
+          multiple: true
+      default: [] 
+    cozy_dayparts:
+      name: Constant, cozy lighting during
+      selector:
+        state:
+          entity_id: input_select.day_part
+          multiple: true
+      default: []
+    nightlight_dayparts:
+      name: Nightlight during
+      selector:
+        state:
+          entity_id: input_select.day_part
+          multiple: true
+      default: []
+    vacancy_dayparts:
+      name: Vacancy only during
+      selector:
+        state:
+          entity_id: input_select.day_part
+          multiple: true
+      default: []
+triggers:
+  - trigger: occupancy.detected
+    id: occupied
+    target: !input occupancy
+    options:
+      behavior: first
+      
+  - trigger: occupancy.cleared
+    id: cleared
+    target: !input occupancy
+    options:
+      for: '00:15:00'
+      behavior: all
+      
+  - trigger: state
+    id: day_part_changed
+    entity_id: input_select.day_part
+      
+conditions: []
+actions:
+  - if:
+      - condition: trigger
+        id: occupied
+    then:
+      - choose:
+          - conditions:
+              - condition: state
+                entity_id: input_select.day_part
+                state: !input task_dayparts
+            sequence: 
+              - action: light.turn_on
+                data:
+                  color_temp_kelvin: 4200
+                  transition: 2
+                  brightness_pct: 100
+                target: !input lights
+          - conditions:
+              - condition: state
+                entity_id: input_select.day_part
+                state: !input path_dayparts
+            sequence: 
+              - action: light.turn_on
+                data:
+                  color_temp_kelvin: 4200
+                  transition: 2
+                  brightness_pct: 100
+                target: !input lights
+          - conditions:
+              - condition: state
+                entity_id: input_select.day_part
+                state: !input nightlight_dayparts
+            sequence: 
+              - action: light.turn_on
+                data:
+                  color_temp_kelvin: 2500
+                  transition: 2
+                  brightness_pct: 10
+                target: !input lights
+  - if:
+      - condition: trigger
+        id: cleared
+      - condition: state
+        entity_id: input_select.day_part
+        state: !input vacancy_dayparts
+    then:
+      - action: light.turn_off
+        data:
+          transition: 300
+        target: !input lights
+  - if:
+      - condition: trigger
+        id: day_part_changed
+      - condition: state
+        entity_id: input_select.day_part
+        state: !input cozy_dayparts
+    then:
+      - action: light.turn_on
+        data:
+          color_temp_kelvin: 3100
+          transition: 600
+          brightness_pct: 80
+        target: !input lights
+mode: restart
